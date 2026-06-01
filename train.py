@@ -9,11 +9,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from utils.data import DataValidationError, format_dataset_summary, load_data, write_dataset_reports
+from features import FeatureValidationError, build_feature_bundle, format_feature_summary
+from utils.data import DataValidationError, load_data
 from utils.io import ensure_output_directories, load_config
 from utils.logger import get_logger, setup_logging
 from utils.seed import set_deterministic_seed
-from validation import format_validation_summary, run_validation_pipeline
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,20 +45,17 @@ def main() -> None:
         runtime_logger.exception("Phase 1 dataset validation failed.")
         raise
 
-    write_dataset_reports(bundle, config.paths.reports_dir)
-    summary = format_dataset_summary(bundle)
-    runtime_logger.info("Phase 1 dataset summary: %s", summary)
+    try:
+        feature_bundle = build_feature_bundle(bundle.train, bundle.test)
+    except FeatureValidationError:
+        runtime_logger.exception("Baseline feature generation failed.")
+        raise
 
-    validation_run = run_validation_pipeline(
-        bundle,
-        artifact_dir=config.paths.artifacts_dir / "folds",
-        report_path=config.paths.reports_dir / "validation_reports" / "fold_summary.md",
-    )
-    validation_summary = format_validation_summary(validation_run)
-    runtime_logger.info("Phase 2 validation summary: %s", validation_summary)
+    summary = format_feature_summary(feature_bundle)
+    runtime_logger.info("Baseline feature summary: %s", summary)
 
-    print(f"Validation pipeline ready for {config.project_name}.")
-    print(validation_summary)
+    print(f"Feature pipeline ready for {config.project_name}.")
+    print(summary)
 
 
 if __name__ == "__main__":
