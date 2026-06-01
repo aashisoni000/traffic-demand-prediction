@@ -21,6 +21,8 @@ KEY_COLUMNS: Final[tuple[str, ...]] = ("geohash", "day", TIMESTAMP_COLUMN)
 SORT_COLUMNS: Final[tuple[str, ...]] = ("geohash", PARSED_TIMESTAMP_COLUMN)
 SUSPICIOUS_DUPLICATE_RATIO: Final[float] = 0.005
 SUSPICIOUS_DUPLICATE_ROWS: Final[int] = 25
+EXTREME_EXACT_DUPLICATE_RATIO: Final[float] = 0.10
+EXTREME_EXACT_DUPLICATE_ROWS: Final[int] = 1_000
 EXPECTED_TRAIN_COLUMNS: Final[tuple[str, ...]] = (
     "Index",
     "geohash",
@@ -66,7 +68,11 @@ class DatasetAudit:
     exact_duplicate_rows: int
     key_duplicate_rows: int
     duplicate_ratio: float
+    conflicting_duplicate_rows: int
+    conflicting_duplicate_keys: int
+    exact_duplicate_ratio: float
     null_counts: dict[str, int]
+    memory_usage_bytes: int
     timestamp_min: str | None
     timestamp_max: str | None
     geohash_count: int
@@ -137,6 +143,8 @@ def format_dataset_summary(bundle: LoadedData) -> str:
         f"Train rows: {train.row_count:,} | Test rows: {test.row_count:,} | "
         f"Train geohashes: {train.geohash_count:,} | Test geohashes: {test.geohash_count:,} | "
         f"Train duplicates: {train.key_duplicate_rows:,} | Test duplicates: {test.key_duplicate_rows:,} | "
+        f"Train conflicting duplicates: {train.conflicting_duplicate_rows:,} | Test conflicting duplicates: {test.conflicting_duplicate_rows:,} | "
+        f"Train memory: {_format_bytes(train.memory_usage_bytes)} | Test memory: {_format_bytes(test.memory_usage_bytes)} | "
         f"Train null cells: {sum(train.null_counts.values()):,} | Test null cells: {sum(test.null_counts.values()):,}"
     )
 
@@ -162,14 +170,28 @@ def _load_single_dataset(
     _validate_timestamp_ordering(working, dataset_name=dataset_name, path=path)
 
     exact_duplicate_rows = int(working.duplicated().sum())
+    exact_duplicate_ratio = exact_duplicate_rows / len(working) if len(working) else 0.0
+
     key_duplicate_rows = int(working.duplicated(subset=list(KEY_COLUMNS)).sum())
-    duplicate_ratio = key_duplicate_rows / len(working) if len(working) else 0.0
+    key_duplicate_ratio = key_duplicate_rows / len(working) if len(working) else 0.0
+
+    conflicting_duplicate_rows, conflicting_duplicate_keys = _count_conflicting_duplicates(
+        working,
+        target_column=target_column,
+    )
+
     _validate_duplicates(
         dataset_name=dataset_name,
         path=path,
-        duplicate_rows=key_duplicate_rows,
-        duplicate_ratio=duplicate_ratio,
+        exact_duplicate_rows=exact_duplicate_rows,
+        exact_duplicate_ratio=exact_duplicate_ratio,
+        key_duplicate_rows=key_duplicate_rows,
+        key_duplicate_ratio=key_duplicate_ratio,
+        conflicting_duplicate_rows=conflicting_duplicate_rows,
+        conflicting_duplicate_keys=conflicting_duplicate_keys,
     )
+
+    final_frame = working.drop(columns=[PARSED_TIMESTAMP_COLUMN])
 
     audit = DatasetAudit(
         name=dataset_name,
@@ -181,15 +203,19 @@ def _load_single_dataset(
         extra_columns=tuple(column for column in frame.columns if column not in expected_columns),
         exact_duplicate_rows=exact_duplicate_rows,
         key_duplicate_rows=key_duplicate_rows,
-        duplicate_ratio=duplicate_ratio,
+        duplicate_ratio=key_duplicate_ratio,
+        conflicting_duplicate_rows=conflicting_duplicate_rows,
+        conflicting_duplicate_keys=conflicting_duplicate_keys,
+        exact_duplicate_ratio=exact_duplicate_ratio,
         null_counts={column: int(frame[column].isna().sum()) for column in frame.columns},
+        memory_usage_bytes=int(final_frame.memory_usage(deep=True).sum()),
         timestamp_min=_format_timestamp(working[PARSED_TIMESTAMP_COLUMN].min()),
         timestamp_max=_format_timestamp(working[PARSED_TIMESTAMP_COLUMN].max()),
         geohash_count=int(working["geohash"].nunique(dropna=True)),
         day_count=int(working["day"].nunique(dropna=True)),
         target_null_count=int(working[target_column].isna().sum()) if target_column else None,
     )
-    return working, audit
+    return final_frame, audit
 
 
 def _validate_schema(
@@ -249,16 +275,53 @@ def _validate_duplicates(
     *,
     dataset_name: str,
     path: Path,
-    duplicate_rows: int,
-    duplicate_ratio: float,
+    exact_duplicate_rows: int,
+    exact_duplicate_ratio: float,
+    key_duplicate_rows: int,
+    key_duplicate_ratio: float,
+    conflicting_duplicate_rows: int,
+    conflicting_duplicate_keys: int,
 ) -> None:
-    if duplicate_rows == 0:
-        return
-    if duplicate_rows >= SUSPICIOUS_DUPLICATE_ROWS and duplicate_ratio >= SUSPICIOUS_DUPLICATE_RATIO:
-        raise DataValidationError(
-            f"{dataset_name.title()} duplicate count is suspiciously high in {path}: "
-            f"{duplicate_rows} key duplicates ({duplicate_ratio:.2%})."
+    if key_duplicate_rows > 0 or exact_duplicate_rows > 0:
+        LOGGER.warning(
+            "%s duplicate audit: key duplicates=%d (%.2f%%), exact duplicates=%d (%.2f%%).",
+            dataset_name.title(),
+            key_duplicate_rows,
+            key_duplicate_ratio * 100,
+            exact_duplicate_rows,
+            exact_duplicate_ratio * 100,
         )
+
+    if conflicting_duplicate_rows > 0:
+        raise DataValidationError(
+            f"{dataset_name.title()} contains conflicting duplicate target values in {path}: "
+            f"{conflicting_duplicate_rows} duplicate rows across {conflicting_duplicate_keys} key groups."
+        )
+
+    if exact_duplicate_rows >= EXTREME_EXACT_DUPLICATE_ROWS and exact_duplicate_ratio >= EXTREME_EXACT_DUPLICATE_RATIO:
+        raise DataValidationError(
+            f"{dataset_name.title()} exact duplicate ratio is extreme in {path}: "
+            f"{exact_duplicate_rows} exact duplicate rows ({exact_duplicate_ratio:.2%})."
+        )
+
+
+def _count_conflicting_duplicates(frame: pd.DataFrame, *, target_column: str | None) -> tuple[int, int]:
+    if target_column is None:
+        return 0, 0
+
+    duplicate_groups = frame.groupby(list(KEY_COLUMNS), dropna=False, sort=False)
+    conflicting_duplicate_rows = 0
+    conflicting_duplicate_keys = 0
+
+    for _, group in duplicate_groups:
+        if len(group) <= 1:
+            continue
+        target_values = group[target_column]
+        if target_values.nunique(dropna=False) > 1:
+            conflicting_duplicate_keys += 1
+            conflicting_duplicate_rows += len(group)
+
+    return conflicting_duplicate_rows, conflicting_duplicate_keys
 
 
 def _format_timestamp(value: pd.Timestamp | pd.NaT) -> str | None:
@@ -315,6 +378,10 @@ def _render_summary_report(bundle: LoadedData) -> str:
             f"| Days | {train.day_count:,} | {test.day_count:,} |",
             f"| Exact duplicates | {train.exact_duplicate_rows:,} | {test.exact_duplicate_rows:,} |",
             f"| Key duplicates | {train.key_duplicate_rows:,} | {test.key_duplicate_rows:,} |",
+            f"| Conflicting duplicate rows | {train.conflicting_duplicate_rows:,} | {test.conflicting_duplicate_rows:,} |",
+            f"| Conflicting duplicate keys | {train.conflicting_duplicate_keys:,} | {test.conflicting_duplicate_keys:,} |",
+            f"| Exact duplicate ratio | {train.exact_duplicate_ratio:.2%} | {test.exact_duplicate_ratio:.2%} |",
+            f"| Memory usage | {_format_bytes(train.memory_usage_bytes)} | {_format_bytes(test.memory_usage_bytes)} |",
             f"| Null cells | {sum(train.null_counts.values()):,} | {sum(test.null_counts.values()):,} |",
             f"| Timestamp min | {_safe_text(train.timestamp_min)} | {_safe_text(test.timestamp_min)} |",
             f"| Timestamp max | {_safe_text(train.timestamp_max)} | {_safe_text(test.timestamp_max)} |",
@@ -337,3 +404,16 @@ def _format_list(values: tuple[str, ...]) -> str:
 
 def _safe_text(value: str | None) -> str:
     return value if value is not None else "N/A"
+
+
+def _format_bytes(num_bytes: int) -> str:
+    if num_bytes < 1024:
+        return f"{num_bytes} B"
+
+    units = ("KB", "MB", "GB", "TB")
+    value = float(num_bytes)
+    for unit in units:
+        value /= 1024.0
+        if value < 1024.0 or unit == units[-1]:
+            return f"{value:.2f} {unit}"
+    return f"{value:.2f} TB"
