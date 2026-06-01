@@ -8,8 +8,9 @@
 - OOF RMSE: 0.073737
 - OOF coverage rows: 62,077
 - OOF coverage ratio: 80.31%
-- Training runtime: 17.90 seconds
+- Training runtime: 15.95 seconds
 - Feature count: 12
+- Enabled features: hour, minute, day_index, hour_sin, hour_cos, minute_sin, minute_cos, RoadType, Weather, Temperature, NumberOfLanes, LargeVehicles
 - Fold metrics: /home/aashisoni/Codes/traffic-demand-prediction/artifacts/models/catboost_fold_metrics.csv
 - OOF predictions: /home/aashisoni/Codes/traffic-demand-prediction/oof/catboost/oof_predictions.csv
 - CatBoost parameters: /home/aashisoni/Codes/traffic-demand-prediction/artifacts/models/catboost_params.json
@@ -18,11 +19,11 @@
 
 | Fold | RMSE | Train rows | Validation rows | Train runtime (s) | Best iteration |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| 1 | 0.074474 | 14,308 | 16,210 | 1.37 | 153 |
-| 2 | 0.083417 | 30,537 | 15,956 | 2.95 | 191 |
-| 3 | 0.073131 | 46,556 | 10,581 | 3.91 | 175 |
-| 4 | 0.052378 | 57,557 | 5,986 | 6.35 | 221 |
-| 5 | 0.069026 | 63,502 | 13,344 | 2.97 | 59 |
+| 1 | 0.074474 | 14,308 | 16,210 | 1.25 | 153 |
+| 2 | 0.083417 | 30,537 | 15,956 | 2.62 | 191 |
+| 3 | 0.073131 | 46,556 | 10,581 | 3.51 | 175 |
+| 4 | 0.052378 | 57,557 | 5,986 | 5.57 | 221 |
+| 5 | 0.069026 | 63,502 | 13,344 | 2.69 | 59 |
 
 ## CatBoost Parameters
 

@@ -48,15 +48,6 @@ def main() -> None:
         raise
 
     try:
-        feature_bundle = build_feature_bundle(bundle.train, bundle.test)
-    except FeatureValidationError:
-        runtime_logger.exception("Baseline feature generation failed.")
-        raise
-
-    summary = format_feature_summary(feature_bundle)
-    runtime_logger.info("Baseline feature summary: %s", summary)
-
-    try:
         validation_run = run_validation_pipeline(
             bundle,
             artifact_dir=config.paths.artifacts_dir / "folds",
@@ -67,6 +58,17 @@ def main() -> None:
         raise
 
     runtime_logger.info("Validation summary: %s", format_validation_summary(validation_run))
+
+    try:
+        feature_bundle = build_feature_bundle(
+            bundle.train, bundle.test, validation_run, enabled_features=config.features.enabled
+        )
+    except FeatureValidationError:
+        runtime_logger.exception("Baseline feature generation failed.")
+        raise
+
+    summary = format_feature_summary(feature_bundle)
+    runtime_logger.info("Baseline feature summary: %s", summary)
 
     try:
         catboost_run = train_catboost_baseline(

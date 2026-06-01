@@ -1,0 +1,13 @@
+project_name: traffic_demand_prediction
+seed: 42
+log_level: INFO
+features:
+  enabled: []
+
+paths:
+  artifacts_dir: artifacts/experiments/baseline_only
+  oof_dir: oof/experiments/baseline_only
+  reports_dir: reports/experiments/baseline_only
+  logs_dir: artifacts/logs/experiments/baseline_only
+  submission_dir: submissions/experiments/baseline_only
+  logs_dir: artifacts/logs/experiments/baseline_only

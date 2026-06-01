@@ -1,0 +1,15 @@
+project_name: traffic_demand_prediction
+seed: 42
+log_level: INFO
+features:
+  enabled:
+    - lag1_demand
+    - rolling_mean_3
+
+paths:
+  artifacts_dir: artifacts/experiments/lag1_plus_rolling
+  oof_dir: oof/experiments/lag1_plus_rolling
+  reports_dir: reports/experiments/lag1_plus_rolling
+  logs_dir: artifacts/logs/experiments/lag1_plus_rolling
+  submission_dir: submissions/experiments/lag1_plus_rolling
+  logs_dir: artifacts/logs/experiments/lag1_plus_rolling

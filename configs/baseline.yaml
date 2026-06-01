@@ -6,3 +6,5 @@ paths:
   oof_dir: oof
   reports_dir: reports
   logs_dir: artifacts/logs
+  submission_dir: submissions
+  logs_dir: artifacts/logs

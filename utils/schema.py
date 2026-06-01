@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 
 class ConfigError(ValueError):
@@ -24,7 +24,12 @@ class PathConfig:
     reports_dir: Path
     logs_dir: Path
 
+@dataclass(frozen=True, slots=True)
+class FeatureConfig:
+    """Configuration for optional feature ablations."""
 
+    enabled: Sequence[str] 
+    
 @dataclass(frozen=True, slots=True)
 class AppConfig:
     """Top-level application config for the baseline pipeline."""
@@ -33,6 +38,7 @@ class AppConfig:
     seed: int
     log_level: str
     paths: PathConfig
+    features: FeatureConfig
 
 
 def _require_mapping(data: Any, *, context: str) -> Mapping[str, Any]:
@@ -72,9 +78,18 @@ def load_app_config(data: Mapping[str, Any], *, base_dir: Path) -> AppConfig:
         logs_dir=_resolve_path(base_dir, paths_data.get("logs_dir", "artifacts/logs"), field_name="paths.logs_dir"),
     )
 
+    if "features" in data:
+        features_data = _require_mapping(data["features"], context="'features'")
+        enabled_features = [str(f) for f in features_data.get("enabled", [])]
+        features = FeatureConfig(enabled=enabled_features)
+    else:
+        # Default to an empty FeatureConfig if 'features' section is missing
+        features = FeatureConfig(enabled=[])
+
     return AppConfig(
         project_name=project_name,
         seed=seed,
         log_level=log_level,
         paths=paths,
+        features=features,
     )

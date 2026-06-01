@@ -1,0 +1,17 @@
+project_name: traffic_demand_prediction
+seed: 42
+log_level: INFO
+features:
+  enabled:
+    - lag1_demand
+    - rolling_mean_3
+    - geohash_hour_mean
+    - RoadType_hour_mean
+
+paths:
+  artifacts_dir: artifacts/experiments/all_features
+  oof_dir: oof/experiments/all_features
+  reports_dir: reports/experiments/all_features
+  logs_dir: artifacts/logs/experiments/all_features
+  submission_dir: submissions/experiments/all_features
+  logs_dir: artifacts/logs/experiments/all_features
