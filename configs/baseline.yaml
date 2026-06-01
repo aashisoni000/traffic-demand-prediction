@@ -1,0 +1,8 @@
+project_name: flipkart_gridlock
+seed: 42
+log_level: INFO
+paths:
+  artifacts_dir: artifacts
+  oof_dir: oof
+  reports_dir: reports
+  logs_dir: artifacts/logs

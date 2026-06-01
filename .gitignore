@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.py[cod]
+
+# Data and competition outputs
+*.parquet
+logs/
+artifacts/
+oof/
+submissions/
+models/*.pkl
+models/*.joblib
+models/*.bin
+models/*.txt
+models/*.cbm
+
+# Notebook state
+.ipynb_checkpoints/
+
+# IDE files
+.vscode/
+.idea/
+*.code-workspace
