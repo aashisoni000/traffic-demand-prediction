@@ -23,6 +23,7 @@ class PathConfig:
     oof_dir: Path
     reports_dir: Path
     logs_dir: Path
+    submission_dir: Path
 
 @dataclass(frozen=True, slots=True)
 class FeatureConfig:
@@ -30,6 +31,12 @@ class FeatureConfig:
 
     enabled: Sequence[str] 
     
+@dataclass(frozen=True, slots=True)
+class ModelConfig:
+    """Configuration for model hyperparameters."""
+
+    params: dict[str, Any]
+
 @dataclass(frozen=True, slots=True)
 class AppConfig:
     """Top-level application config for the baseline pipeline."""
@@ -39,6 +46,7 @@ class AppConfig:
     log_level: str
     paths: PathConfig
     features: FeatureConfig
+    model: ModelConfig
 
 
 def _require_mapping(data: Any, *, context: str) -> Mapping[str, Any]:
@@ -76,6 +84,7 @@ def load_app_config(data: Mapping[str, Any], *, base_dir: Path) -> AppConfig:
         oof_dir=_resolve_path(base_dir, paths_data.get("oof_dir", "oof"), field_name="paths.oof_dir"),
         reports_dir=_resolve_path(base_dir, paths_data.get("reports_dir", "reports"), field_name="paths.reports_dir"),
         logs_dir=_resolve_path(base_dir, paths_data.get("logs_dir", "artifacts/logs"), field_name="paths.logs_dir"),
+        submission_dir=_resolve_path(base_dir, paths_data.get("submission_dir", "submissions"), field_name="paths.submission_dir"),
     )
 
     if "features" in data:
@@ -86,10 +95,19 @@ def load_app_config(data: Mapping[str, Any], *, base_dir: Path) -> AppConfig:
         # Default to an empty FeatureConfig if 'features' section is missing
         features = FeatureConfig(enabled=[])
 
+    if "catboost" in data:
+        cb_params = _require_mapping(data["catboost"], context="'catboost'")
+        model = ModelConfig(params=dict(cb_params))
+    else:
+        model_data = _require_mapping(data.get("model", {}), context="'model'")
+        model_params = _require_mapping(model_data.get("params", {}), context="'model.params'")
+        model = ModelConfig(params=dict(model_params))
+
     return AppConfig(
         project_name=project_name,
         seed=seed,
         log_level=log_level,
         paths=paths,
         features=features,
+        model=model,
     )

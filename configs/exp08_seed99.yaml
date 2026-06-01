@@ -1,0 +1,25 @@
+project_name: traffic_demand_prediction
+seed: 99
+log_level: INFO
+features:
+  enabled:
+    - lag1_demand
+    - rolling_mean_3
+
+catboost:
+  iterations: 1400
+  learning_rate: 0.025
+  depth: 8
+  l2_leaf_reg: 6
+  bootstrap_type: Bayesian
+  bagging_temperature: 1
+  random_strength: 1
+  od_wait: 120
+  random_seed: 99
+
+paths:
+  artifacts_dir: artifacts/experiments/seed99
+  oof_dir: oof/experiments/seed99
+  reports_dir: reports/experiments/seed99
+  logs_dir: artifacts/logs/experiments/seed99
+  submission_dir: submissions/experiments/seed99

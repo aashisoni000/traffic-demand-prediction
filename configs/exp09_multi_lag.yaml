@@ -1,0 +1,27 @@
+project_name: traffic_demand_prediction
+seed: 42
+log_level: INFO
+features:
+  enabled:
+    - lag1_demand
+    - lag2_demand
+    - lag3_demand
+    - lag6_demand
+    - rolling_mean_3
+
+catboost:
+  iterations: 1400
+  learning_rate: 0.025
+  depth: 8
+  l2_leaf_reg: 6
+  bootstrap_type: Bayesian
+  bagging_temperature: 1
+  random_strength: 1
+  od_wait: 120
+
+paths:
+  artifacts_dir: artifacts/experiments/multi_lag
+  oof_dir: oof/experiments/multi_lag
+  reports_dir: reports/experiments/multi_lag
+  logs_dir: artifacts/logs/experiments/multi_lag
+  submission_dir: submissions/experiments/multi_lag

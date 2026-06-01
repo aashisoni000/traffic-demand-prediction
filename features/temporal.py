@@ -25,8 +25,11 @@ GEOHASH_HOUR_MEAN_COLUMN: Final[str] = "geohash_hour_mean"
 ROADTYPE_HOUR_MEAN_COLUMN: Final[str] = "RoadType_hour_mean"
 GROUPED_MEAN_COLUMNS: Final[tuple[str, ...]] = (GEOHASH_HOUR_MEAN_COLUMN, ROADTYPE_HOUR_MEAN_COLUMN)
 LAG1_DEMAND_COLUMN: Final[str] = "lag1_demand"
+LAG2_DEMAND_COLUMN: Final[str] = "lag2_demand"
+LAG3_DEMAND_COLUMN: Final[str] = "lag3_demand"
+LAG6_DEMAND_COLUMN: Final[str] = "lag6_demand"
 ROLLING_MEAN_3_COLUMN: Final[str] = "rolling_mean_3"
-LAG_FEATURE_COLUMNS: Final[tuple[str, ...]] = (LAG1_DEMAND_COLUMN, ROLLING_MEAN_3_COLUMN)
+LAG_FEATURE_COLUMNS: Final[tuple[str, ...]] = (LAG1_DEMAND_COLUMN, LAG2_DEMAND_COLUMN, LAG3_DEMAND_COLUMN, LAG6_DEMAND_COLUMN, ROLLING_MEAN_3_COLUMN)
 BASE_FEATURE_COLUMNS: Final[tuple[str, ...]] = (
     "hour",
     "minute",
@@ -42,7 +45,7 @@ BASE_FEATURE_COLUMNS: Final[tuple[str, ...]] = (
     "LargeVehicles",
 )
 GROUPED_OUTPUT_FEATURE_COLUMNS: Final[tuple[str, ...]] = BASE_FEATURE_COLUMNS + GROUPED_MEAN_COLUMNS
-OUTPUT_FEATURE_COLUMNS: Final[tuple[str, ...]] = BASE_FEATURE_COLUMNS + GROUPED_MEAN_COLUMNS + (LAG1_DEMAND_COLUMN, ROLLING_MEAN_3_COLUMN)
+OUTPUT_FEATURE_COLUMNS: Final[tuple[str, ...]] = BASE_FEATURE_COLUMNS + GROUPED_MEAN_COLUMNS + LAG_FEATURE_COLUMNS
 TEMPORAL_COLUMNS: Final[tuple[str, ...]] = ("hour", "minute", "day_index")
 CYCLE_COLUMNS: Final[tuple[str, ...]] = ("hour_sin", "hour_cos", "minute_sin", "minute_cos")
 CATEGORICAL_COLUMNS: Final[tuple[str, ...]] = ("RoadType", "Weather")
@@ -60,6 +63,9 @@ NUMERIC_COLUMNS: Final[tuple[str, ...]] = (
     GEOHASH_HOUR_MEAN_COLUMN,
     ROADTYPE_HOUR_MEAN_COLUMN,
     LAG1_DEMAND_COLUMN,
+    LAG2_DEMAND_COLUMN,
+    LAG3_DEMAND_COLUMN,
+    LAG6_DEMAND_COLUMN,
     ROLLING_MEAN_3_COLUMN,
 )
 DEFAULT_ARTIFACT_DIR: Final[Path] = Path("artifacts/features")
@@ -432,7 +438,7 @@ def add_fold_safe_lag_features(
 
         unassigned_train_index = train_index[~assigned_rows.iloc[train_index].to_numpy()]
         if len(unassigned_train_index) > 0:
-            train_results = _compute_lag1_from_history(
+            train_results = _compute_lag_features_from_history(
                 history_source=train_source.iloc[train_index],
                 history_features=train_output.iloc[train_index],
                 query_source=train_source.iloc[unassigned_train_index],
@@ -445,7 +451,7 @@ def add_fold_safe_lag_features(
                 ] = train_results[col].to_numpy()
             assigned_rows.iloc[unassigned_train_index] = True
 
-        validation_results = _compute_lag1_from_history(
+        validation_results = _compute_lag_features_from_history(
             history_source=train_source.iloc[train_index],
             history_features=train_output.iloc[train_index],
             query_source=train_source.iloc[validation_index],
@@ -471,7 +477,7 @@ def add_fold_safe_lag_features(
             )
 
     _validate_fold_safe_lag_features(train_source, train_output, validation_run, columns=columns)
-    test_results = _compute_lag1_from_history(
+    test_results = _compute_lag_features_from_history(
         history_source=train_source,
         history_features=train_output,
         query_source=test_source,
@@ -485,7 +491,17 @@ def add_fold_safe_lag_features(
 
     diagnostics = []
     for col in columns:
-        lag_order = 1 if col == LAG1_DEMAND_COLUMN else 3
+        if col == LAG1_DEMAND_COLUMN:
+            lag_order = 1
+        elif col == LAG2_DEMAND_COLUMN:
+            lag_order = 2
+        elif col == LAG3_DEMAND_COLUMN:
+            lag_order = 3
+        elif col == LAG6_DEMAND_COLUMN:
+            lag_order = 6
+        else:  # ROLLING_MEAN_3_COLUMN
+            lag_order = 3
+
         diagnostics.append(
             LagFeatureDiagnostics(
                 feature_name=col,
@@ -818,6 +834,9 @@ def _compute_lag1_from_history(
 
     results = {
         LAG1_DEMAND_COLUMN: pd.Series(np.nan, index=query_source.index, dtype="float64"),
+        LAG2_DEMAND_COLUMN: pd.Series(np.nan, index=query_source.index, dtype="float64"),
+        LAG3_DEMAND_COLUMN: pd.Series(np.nan, index=query_source.index, dtype="float64"),
+        LAG6_DEMAND_COLUMN: pd.Series(np.nan, index=query_source.index, dtype="float64"),
         ROLLING_MEAN_3_COLUMN: pd.Series(np.nan, index=query_source.index, dtype="float64"),
         "_lag1_source_times": pd.Series(np.nan, index=query_source.index, dtype="float64"),
     }
@@ -838,6 +857,21 @@ def _compute_lag1_from_history(
             pos = positions[valid_lag1]
             results[LAG1_DEMAND_COLUMN].loc[idx] = history_targets[pos]
             results["_lag1_source_times"].loc[idx] = history_times[pos].astype(float)
+
+        # Lag 2
+        valid_lag2 = positions >= 1
+        if valid_lag2.any():
+            results[LAG2_DEMAND_COLUMN].loc[query_group.index[valid_lag2]] = history_targets[positions[valid_lag2] - 1]
+
+        # Lag 3
+        valid_lag3 = positions >= 2
+        if valid_lag3.any():
+            results[LAG3_DEMAND_COLUMN].loc[query_group.index[valid_lag3]] = history_targets[positions[valid_lag3] - 2]
+
+        # Lag 6
+        valid_lag6 = positions >= 5
+        if valid_lag6.any():
+            results[LAG6_DEMAND_COLUMN].loc[query_group.index[valid_lag6]] = history_targets[positions[valid_lag6] - 5]
 
         # Rolling Mean 3
         valid_rolling3 = positions >= 2

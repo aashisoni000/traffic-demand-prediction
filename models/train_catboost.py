@@ -100,6 +100,7 @@ def train_catboost_baseline(
     test_features = feature_bundle.test.reset_index(drop=True)
     target = pd.to_numeric(data.train[TARGET_COLUMN], errors="raise").reset_index(drop=True)
     params = _build_params(seed=seed, params=params)
+    LOGGER.info("Active CatBoost parameters: %s", json.dumps(params, indent=2))
 
     _validate_feature_parity(train_features, test_features)
     _validate_folds(validation_run.folds, len(train_features))

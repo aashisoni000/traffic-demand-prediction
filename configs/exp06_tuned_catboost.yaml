@@ -1,0 +1,21 @@
+project_name: traffic_demand_prediction
+seed: 42
+log_level: INFO
+features:
+  enabled:
+    - lag1_demand
+    - rolling_mean_3
+
+catboost:
+  iterations: 1200
+  learning_rate: 0.03
+  depth: 8
+  l2_leaf_reg: 5
+  od_wait: 100
+
+paths:
+  artifacts_dir: artifacts/experiments/tuned_catboost
+  oof_dir: oof/experiments/tuned_catboost
+  reports_dir: reports/experiments/tuned_catboost
+  logs_dir: artifacts/logs/experiments/tuned_catboost
+  submission_dir: submissions/experiments/tuned_catboost
