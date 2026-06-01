@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from utils.data import DataValidationError, format_dataset_summary, load_data, write_dataset_reports
 from utils.io import ensure_output_directories, load_config
 from utils.logger import get_logger, setup_logging
 from utils.seed import set_deterministic_seed
@@ -37,7 +38,18 @@ def main() -> None:
     runtime_logger.info("Deterministic seed initialized to %d.", config.seed)
     logger.info("Runtime directories are ready.")
 
-    print(f"Phase 0 startup successful for {config.project_name}.")
+    try:
+        bundle = load_data()
+    except DataValidationError:
+        runtime_logger.exception("Phase 1 dataset validation failed.")
+        raise
+
+    write_dataset_reports(bundle, config.paths.reports_dir)
+    summary = format_dataset_summary(bundle)
+    runtime_logger.info("Phase 1 dataset summary: %s", summary)
+
+    print(f"Phase 1 dataset pipeline ready for {config.project_name}.")
+    print(summary)
 
 
 if __name__ == "__main__":
