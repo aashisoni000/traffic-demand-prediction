@@ -5,8 +5,11 @@ random sources, and confirm the runtime started successfully.
 """
 
 from __future__ import annotations
-
+import time
+from catboost import CatBoostRegressor, Pool
 import argparse
+import numpy as np
+import pandas as pd
 from pathlib import Path
 
 from features import FeatureValidationError, build_feature_bundle, format_feature_summary
@@ -148,6 +151,13 @@ def generate_submission(
     # Prepare test features
     test_features = feature_bundle.test.copy()
     categorical_features = list(feature_bundle.train_metadata.categorical_columns)
+    for column in categorical_features:
+        if column in test_features.columns:
+            test_features[column] = (
+                test_features[column]
+                .astype("string")
+                .fillna("__MISSING__")
+            )
     test_pool = Pool(test_features, cat_features=categorical_features)
 
     # Generate predictions

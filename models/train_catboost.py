@@ -74,6 +74,7 @@ class CatBoostBaselineRun:
     oof_coverage_ratio: float
     runtime_seconds: float
     feature_count: int
+    feature_names: Sequence[str]
     params: dict[str, object]
     model_dir: Path
     oof_dir: Path
@@ -92,6 +93,7 @@ def train_catboost_baseline(
     oof_dir: Path | str = OOF_DIR,
     report_path: Path | str = REPORT_PATH,
     params: dict[str, object] | None = None,
+    feature_names: Sequence[str] | None = None,
 ) -> CatBoostBaselineRun:
     """Train fold-safe CatBoost baseline and generate OOF predictions."""
 
@@ -101,6 +103,9 @@ def train_catboost_baseline(
     target = pd.to_numeric(data.train[TARGET_COLUMN], errors="raise").reset_index(drop=True)
     params = _build_params(seed=seed, params=params)
     LOGGER.info("Active CatBoost parameters: %s", json.dumps(params, indent=2))
+
+    if feature_names is None:
+        feature_names = list(train_features.columns)
 
     _validate_feature_parity(train_features, test_features)
     _validate_folds(validation_run.folds, len(train_features))
@@ -182,7 +187,7 @@ def train_catboost_baseline(
             oof_coverage_ratio=oof_coverage_ratio,
             runtime_seconds=runtime_seconds,
             feature_count=len(train_features.columns),
-            feature_names=list(train_features.columns),
+            feature_names=list(feature_names),
             params=params,
             fold_metrics_path=fold_metrics_path,
             oof_predictions_path=oof_predictions_path,

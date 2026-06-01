@@ -809,7 +809,7 @@ def _build_grouped_mean_fold_diagnostics(
     }
 
 
-def _compute_lag1_from_history(
+def _compute_lag_features_from_history(
     *,
     history_source: pd.DataFrame,
     history_features: pd.DataFrame,

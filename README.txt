@@ -1,77 +1,143 @@
-Traffic Demand Prediction – Solution Overview
+# Traffic Demand Prediction Solution
 
-Problem:
-The task is to predict traffic demand using temporal, categorical, and historical traffic behavior features.
+## Overview
 
-Approach:
-I built a leakage-safe machine learning pipeline using CatBoost regression with purged time-series cross validation.
+This project solves the traffic demand prediction problem using a fold-safe machine learning pipeline built with CatBoost and time-aware validation.
 
-Main steps:
+The system focuses on:
 
-1. Data validation and reporting
-2. Fold-safe time-series validation
-3. Baseline temporal feature engineering
-4. Lag-based historical demand features
-5. Experiment tracking using YAML configs
-6. Ensemble inference using fold averaging
+* leakage prevention
+* temporal consistency
+* robust feature engineering
+* stable cross-validation
+* ensemble-based inference
 
-Validation Strategy:
-A purged cross-validation setup with embargo groups was used to avoid future leakage between train and validation splits.
+---
 
-Main Features Used:
+# Model Architecture
+
+## Core Model
+
+* CatBoostRegressor
+
+## Validation Strategy
+
+* Purged Time-Series Cross Validation
+* Fold embargo protection
+* Strict chronological separation
+
+This prevents future information leakage during training and validation.
+
+---
+
+# Feature Engineering
+
+## Temporal Features
 
 * hour
 * minute
 * day_index
-* cyclical time encodings
+* hour_sin
+* hour_cos
+* minute_sin
+* minute_cos
+
+## Road and Traffic Features
+
 * RoadType
 * Weather
 * Temperature
 * NumberOfLanes
 * LargeVehicles
+
+## Fold-Safe Lag Features
+
 * lag1_demand
+* lag2_demand
+* lag3_demand
+* lag6_demand
 * rolling_mean_3
 
-Key Engineering Decisions:
+All lag features are generated strictly from past observations within each geohash region.
 
-* Strict chronological feature generation
-* Fold-safe lag features
-* No future target leakage
-* Train/inference feature parity
-* Ensemble averaging across folds
+---
 
-Model:
+# Training Improvements
 
-* CatBoostRegressor
-* RMSE optimization
-* Fold ensemble inference
+## CatBoost Tuning
 
-Best Experiment:
-Configuration:
-exp04_lag1_plus_rolling.yaml
+The final experiments used:
 
-Best Validation Metrics:
+* Bayesian bootstrap
+* stochastic regularization
+* deeper trees
+* lower learning rate
+* extended boosting iterations
 
-* Mean CV RMSE: 0.054805
-* OOF RMSE: 0.056529
+## Ensemble Strategy
 
-Tools & Libraries:
+Final predictions are generated using a weighted ensemble of multiple stochastic CatBoost experiments.
+
+Weights:
+
+* exp07: 0.2
+* exp08: 0.2
+* exp09: 0.6
+
+---
+
+# Project Structure
+
+## Important Files
+
+### Training
+
+* train.py
+
+### Inference
+
+* predict.py
+* weighted_ensemble.py
+
+### Feature Engineering
+
+* features/temporal.py
+
+### Validation
+
+* validation/
+
+### Configurations
+
+* configs/
+
+---
+
+# Final Output
+
+The final submission file:
+
+* preserves original row ordering
+* contains no NaN predictions
+* matches competition submission schema
+
+Generated file:
+
+* final_weighted_ensemble_submission.csv
+
+---
+
+# Libraries Used
 
 * Python
 * Pandas
 * NumPy
 * CatBoost
-* YAML
-* VS Code
+* Scikit-learn
+* PyYAML
 
-Important Files:
+---
 
-* train.py → training entrypoint
-* predict.py → inference + submission generation
-* features/temporal.py → feature engineering
-* validation/purged_cv.py → fold generation
-* models/train_catboost.py → CatBoost training
-* configs/exp04_lag1_plus_rolling.yaml → best experiment config
+# Notes
 
-Inference:
-Predictions were generated using fold model averaging and exported in competition submission format.
+The pipeline was designed to maintain strict train/test parity and avoid data leakage during feature engineering and validation.
