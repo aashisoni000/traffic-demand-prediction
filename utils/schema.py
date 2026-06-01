@@ -51,7 +51,7 @@ def _resolve_path(base_dir: Path, raw_value: Any, *, field_name: str) -> Path:
 def load_app_config(data: Mapping[str, Any], *, base_dir: Path) -> AppConfig:
     """Convert a raw config mapping into a validated dataclass tree."""
 
-    project_name = str(data.get("project_name", "flipkart_gridlock")).strip()
+    project_name = str(data.get("project_name", "traffic_demand_prediction")).strip()
     if not project_name:
         raise ConfigError("Field 'project_name' must not be empty.")
 

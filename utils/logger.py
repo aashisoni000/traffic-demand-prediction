@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Final
 
-_LOGGER_NAME: Final[str] = "flipkart_gridlock"
+_LOGGER_NAME: Final[str] = "traffic_demand_prediction"
 _LOG_FORMAT: Final[str] = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 _DATE_FORMAT: Final[str] = "%Y-%m-%d %H:%M:%S"
 

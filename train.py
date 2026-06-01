@@ -13,6 +13,7 @@ from utils.data import DataValidationError, format_dataset_summary, load_data, w
 from utils.io import ensure_output_directories, load_config
 from utils.logger import get_logger, setup_logging
 from utils.seed import set_deterministic_seed
+from validation import format_validation_summary, run_validation_pipeline
 
 
 def parse_args() -> argparse.Namespace:
@@ -48,8 +49,16 @@ def main() -> None:
     summary = format_dataset_summary(bundle)
     runtime_logger.info("Phase 1 dataset summary: %s", summary)
 
-    print(f"Phase 1 dataset pipeline ready for {config.project_name}.")
-    print(summary)
+    validation_run = run_validation_pipeline(
+        bundle,
+        artifact_dir=config.paths.artifacts_dir / "folds",
+        report_path=config.paths.reports_dir / "validation_reports" / "fold_summary.md",
+    )
+    validation_summary = format_validation_summary(validation_run)
+    runtime_logger.info("Phase 2 validation summary: %s", validation_summary)
+
+    print(f"Validation pipeline ready for {config.project_name}.")
+    print(validation_summary)
 
 
 if __name__ == "__main__":

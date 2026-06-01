@@ -1,4 +1,4 @@
-project_name: flipkart_gridlock
+project_name: traffic_demand_prediction
 seed: 42
 log_level: INFO
 paths:
